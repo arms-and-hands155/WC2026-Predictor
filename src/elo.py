@@ -44,7 +44,7 @@ def update_elo(S, loc, k, home_team_score,away_team_score, R_away, R_home):
     E = 1 / (1 + np.exp(diff * np.log(10)))
 
     #Whats the goal difference
-    gols = home_team_score-away_team_score
+    gols = abs(home_team_score - away_team_score)
     if gols <=1:
         G =1
     elif gols == 2:
@@ -55,12 +55,21 @@ def update_elo(S, loc, k, home_team_score,away_team_score, R_away, R_home):
     #Caculate Elo Shift
     shift = (k * G)*(S - E)
     #Caculate away and home teams elo and return
-    return R_home + shift, R_away - shift
+    return R_away - shift, R_home + shift
+
+def prepare_matches(df, start_date, end_date): #Filter matches to a date range and add result + K-factor columns.
+    mask = (df['date'] > start_date) & (df['date'] < end_date)
+    out = df.loc[mask].copy()
+    out['result'] = out.apply(
+        lambda row: get_result(row['home_score'], row['away_score']), axis=1
+    )
+    out['K_factor'] = out['tournament'].apply(assign_k)
+    return out
 
 #looping through matches and updating elo
 def run_elo_updates(relevant_matches_df, country_elo):
     for row in relevant_matches_df.itertuples(index=False):
-        away_elo,home_elo = update_elo(row.home_win, 
+        away_elo,home_elo = update_elo(row.result, 
                                        row.neutral, 
                                        row.K_factor, 
                                        row.home_score, 
@@ -75,11 +84,3 @@ def run_elo_updates(relevant_matches_df, country_elo):
 
 
 
-def prepare_matches(df, start_date, end_date): #Filter matches to a date range and add result + K-factor columns.
-    mask = (df['date'] > start_date) & (df['date'] < end_date)
-    out = df.loc[mask].copy()
-    out['result'] = out.apply(
-        lambda row: get_result(row['home_score'], row['away_score']), axis=1
-    )
-    out['K_factor'] = out['tournament'].apply(assign_k)
-    return out
