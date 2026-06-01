@@ -5,7 +5,6 @@ import pandas as pd
 from collections import defaultdict
 
 load_dotenv()
-secret = os.getenv("KAGGLE_API_TOKEN")
 
 #Function that finds the files that contains the csvs
 def find_file(root_folder, filename):
@@ -22,6 +21,11 @@ def load_matches():
         raise FileNotFoundError("File not found")
     df = pd.read_csv(matches_path)
     df['date'] = pd.to_datetime(df['date'])
+    
+    # This replaces the hidden \xa0 characters with normal spaces
+    df['home_team'] = df['home_team'].str.replace('\xa0', ' ', regex=True).str.strip()
+    df['away_team'] = df['away_team'].str.replace('\xa0', ' ', regex=True).str.strip()
+    
     return df
 
 def load_elo_baseline(date="12/13/2025"):
@@ -31,10 +35,10 @@ def load_elo_baseline(date="12/13/2025"):
         raise FileNotFoundError("File not found")
     elo_df = pd.read_csv(elo_path)
     elo_2025 = elo_df[elo_df['date'] == date]
-
+    elo_2025['team'] = elo_2025['team'].str.replace('\xa0', ' ', regex=True).str.strip()
     country_elo = defaultdict(lambda:1500)
     for row in elo_2025.itertuples(index=False):
         country_elo[row.team] = row.rating #Gives us a dictionary with every teams elo in 2025
     
-    return country_elo
+    return country_elo  
 
