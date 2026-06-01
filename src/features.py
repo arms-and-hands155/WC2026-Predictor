@@ -15,7 +15,7 @@ def rolling_form(df, team, date):
             if _.result == 0: points += 3
             elif _.result == .5: points += 1
     
-    return points
+    return points/10 #Gives average pts per game over the last 10 games
 
 def h2h_last_five(df, team1, team2):
     past = df[
@@ -26,7 +26,7 @@ def h2h_last_five(df, team1, team2):
     for _ in past.itertuples(index=False):
         if _.home_team == team1 and _.result == 1: wins += 1
         elif _.away_team == team1 and _.result == 0: wins += 1
-    return round(wins / len(past), 2) if len(past) > 0 else 0.5
+    return round(wins / len(past), 2) if len(past) > 0 else 0.5, 1- round(wins / len(past), 2) if len(past) > 0 else 0.5
 
 def average_goal_diff(df, team):
     past = df[
@@ -34,9 +34,9 @@ def average_goal_diff(df, team):
     gd = 0
     for _ in past.tail(10).itertuples(index=False):
         if _.home_team == team:
-            gd += _.home_score
+            gd = gd+_.home_score-_.away_score
         else:
-            gd += _.away_score
+            gd = gd+_.away_score-_.home_score
     return gd / 10
 
 def elo_diff(country_elo,home_team, away_team):
@@ -54,6 +54,7 @@ def build_prediction_features(df, country_elo, wc_teams, cutoff):
             "h2h": h2h_last_five(df, home_team, away_team),
             "home_gd": average_goal_diff(df, home_team),
             "away_gd": average_goal_diff(df, away_team),
+            #Need to fix scenario where mexico plays in US since they aren't hosts
             "neutral": 0 if home_team in ["United States", "Mexico", "Canada"] or away_team in ["United States", "Mexico", "Canada"] else 1
         })
     return pd.DataFrame(rows)
