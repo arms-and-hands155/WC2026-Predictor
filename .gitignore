@@ -1,2 +1,4 @@
 .env
 .env.local
+# Ignore all CSV files in the data folder
+data/
