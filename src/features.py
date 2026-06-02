@@ -52,3 +52,22 @@ def get_h2h_stat(home_team, away_team, h2h_dict):
         return round(avg_outcome, 2)
     else:
         return round(1 - avg_outcome, 2)
+
+
+features = ['elo_diff', 'home_form', 'away_form', 'h2h', 'home_gd', 'away_gd']
+
+
+def build_features(home_team, away_team, history_dict, h2h_dict, country_elo):
+    home_form, home_gd = get_stats(home_team, history_dict)
+    away_form, away_gd = get_stats(away_team, history_dict)
+    
+    h2h = get_h2h_stat(home_team, away_team, h2h_dict)
+    
+    return pd.DataFrame([{
+        'elo_diff': country_elo[home_team]-country_elo[away_team],
+        'home_form': home_form,
+        'away_form': away_form,
+        'home_gd': home_gd,
+        'away_gd': away_gd,
+        'h2h': h2h
+    }])
