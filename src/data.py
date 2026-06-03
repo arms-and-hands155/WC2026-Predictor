@@ -36,7 +36,7 @@ def load_elo_baseline(date="12/13/2025"):
     elo_df = pd.read_csv(elo_path)
     elo_2025 = elo_df[elo_df['date'] == date]
     elo_2025['team'] = elo_2025['team'].str.replace('\xa0', ' ', regex=True).str.strip()
-    country_elo = defaultdict(lambda:1500)
+    country_elo = defaultdict(lambda:1300)
     for row in elo_2025.itertuples(index=False):
         country_elo[row.team] = row.rating #Gives us a dictionary with every teams elo in 2025
     
