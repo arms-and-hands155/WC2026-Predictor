@@ -36,7 +36,7 @@ def update_h2h(row, h2h_dict):
     else:
         outcome = 1 if row.result == 0 else (0.5 if row.result == 0.5 else 0)
     
-    h2h_dict[matchup].append(outcome)
+    h2h_dict.setdefault(matchup, []).append(outcome)
 
 def get_h2h_stat(home_team, away_team, h2h_dict):
     matchup = frozenset([home_team, away_team])
