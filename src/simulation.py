@@ -26,21 +26,24 @@ def predict_match(home_team,
                   country_elo, 
                   goal_model_h,
                   goal_model_a,
-                  scalar):
+                  scalar,
+                  squad_values,
+                  home_elo,
+                  away_elo):
     
-    model_features = ['elo_diff', 'home_form', 'away_form', 'h2h', 'home_gd', 'away_gd']
-    X = build_features(home_team, away_team, history_dict, h2h_dict, country_elo )
+    model_features = ['elo_diff', 'home_elo', 'away_elo', 'home_form', 'away_form', 'h2h', 'home_gd', 'away_gd', 'squad_value_diff']
+    X = build_features(home_team, away_team, history_dict, h2h_dict, country_elo, squad_values, home_elo, away_elo)
     X=X[model_features]
     X_scaled = scalar.transform(X)
     
     probability = model.predict_proba(X_scaled)[0]
     
-    calibration_factor = .4 #Model was predicting too many goals so i had to scale down
+    calibration_factor = .2
     lambda_h = goal_model_h.predict(X_scaled)[0] * calibration_factor
     lambda_a = goal_model_a.predict(X_scaled)[0] * calibration_factor
-    
-    lambda_h = max(0.5, lambda_h)
-    lambda_a = max(0.5, lambda_a)
+
+    lambda_h = np.clip(lambda_h, 0.3, 1.5)
+    lambda_a = np.clip(lambda_a, 0.3, 1.5)
     
     h_goals = np.random.poisson(lambda_h)
     a_goals = np.random.poisson(lambda_a)
@@ -48,9 +51,11 @@ def predict_match(home_team,
     diff = probability[2] - probability[0]
     
     if abs(diff) < draw_threshold:
-        h_goals = a_goals = (1 if (lambda_h + lambda_a)/2 > 1.2 else 0)
-        outcome, ap, hp = "Draw", 1, 1
+        avg_goals = np.random.poisson((lambda_h + lambda_a) / 2)
+        h_goals = a_goals = avg_goals
+        outcome, hp, ap = "Draw", 1, 1
         prob = probability[1]
+        
     elif diff > 0:
         if h_goals <= a_goals: h_goals = a_goals + 1 #incase lambdas give out incorrect numbers in correspondence to result
         outcome, hp, ap = "Home Win", 3, 0

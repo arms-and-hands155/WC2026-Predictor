@@ -1,8 +1,7 @@
 import pandas as pd
-from src.elo import update_elo, assign_k, get_result
 from collections import defaultdict
 from collections import deque
-from itertools import combinations
+import numpy as np
 
 team_history = defaultdict(lambda: deque(maxlen=10))
 
@@ -54,9 +53,14 @@ def get_h2h_stat(home_team, away_team, h2h_dict):
         return round(1 - avg_outcome, 2)
 
 
-def build_features(home_team, away_team, history_dict, h2h_dict, country_elo):
+def build_features(home_team, away_team, history_dict, h2h_dict, country_elo, squad_values, home_elo, away_elo):
     home_form, home_gd = get_stats(home_team, history_dict)
     away_form, away_gd = get_stats(away_team, history_dict)
+    
+    home_val = squad_values.get(home_team, 20)
+    away_val = squad_values.get(away_team, 20)
+    
+    squad_value_diff = np.log1p(home_val) - np.log1p(away_val)
     
     h2h = get_h2h_stat(home_team, away_team, h2h_dict)
     
@@ -66,5 +70,20 @@ def build_features(home_team, away_team, history_dict, h2h_dict, country_elo):
         'away_form': away_form,
         'h2h': h2h,
         'home_gd': home_gd,
-        'away_gd': away_gd
+        'away_gd': away_gd,
+        'squad_value_diff': squad_value_diff,
+        'home_elo': country_elo[home_team],
+        'away_elo': country_elo[away_team]
     }])
+
+
+def get_historical_tier_diff(row, squad_values):
+    if row['date'] > '2024-12-31':
+        h_val = squad_values.get(row['home_team'], 20)
+        a_val = squad_values.get(row['away_team'], 20)
+    else:
+        elite = ['Brazil', 'Argentina', 'France', 'England', 'Spain', 'Germany', 'Italy', 'Netherlands']
+        h_val = 1000 if row['home_team'] in elite else 100
+        a_val = 1000 if row['away_team'] in elite else 100
+        
+    return np.log1p(h_val) - np.log1p(a_val)
