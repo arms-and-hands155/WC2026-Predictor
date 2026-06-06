@@ -39,9 +39,9 @@ def update_elo(S, loc, k, home_team_score,away_team_score, R_away, R_home):
     #Is there home field advantage
     H = 0 if loc else 100
     
-    diff = (R_away - (R_home + H)) / 400
+    diff = (R_home + H - R_away) / 400
     diff = np.clip(diff, -20, 20)
-    E = 1 / (1 + np.exp(diff * np.log(10)))
+    E = 1 / (1 + np.exp(-diff * np.log(10)))
 
     #Whats the goal difference
     gols = abs(home_team_score - away_team_score)

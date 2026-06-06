@@ -123,24 +123,20 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
     history_dict = copy.deepcopy(history_dict)
     h2h_dict     = copy.deepcopy(h2h_dict)
 
-    # ------------------------------------------------------------------ #
-    #  GROUP STAGE                                                         #
-    # ------------------------------------------------------------------ #
-
     wc_groups = {
-        "A": ["Mexico", "South Korea", "South Africa", "Czech Republic"],
-        "B": ["Canada", "Switzerland", "Qatar", "Bosnia and Herzegovina"],
-        "C": ["Brazil", "Morocco", "Haiti", "Scotland"],
-        "D": ["United States", "Paraguay", "Australia", "Turkey"],
-        "E": ["Germany", "Curaçao", "Ivory Coast", "Ecuador"],
-        "F": ["Netherlands", "Japan", "Sweden", "Tunisia"],
-        "G": ["Belgium", "Egypt", "Iran", "New Zealand"],
-        "H": ["Spain", "Cape Verde", "Saudi Arabia", "Uruguay"],
-        "I": ["France", "Senegal", "Iraq", "Norway"],
-        "J": ["Argentina", "Algeria", "Austria", "Jordan"],
-        "K": ["Portugal", "DR Congo", "Uzbekistan", "Colombia"],
-        "L": ["England", "Croatia", "Ghana", "Panama"],
-    }
+    "A": ["Mexico", "South Korea", "South Africa", "Czech Republic"],
+    "B": ["Canada", "Switzerland", "Qatar", "Bosnia and Herzegovina"],
+    "C": ["Brazil", "Morocco", "Haiti", "Scotland"],
+    "D": ["United States", "Paraguay", "Australia", "Turkey"],
+    "E": ["Germany", "Curaçao", "Ivory Coast", "Ecuador"],
+    "F": ["Netherlands", "Japan", "Sweden", "Tunisia"],
+    "G": ["Belgium", "Egypt", "Iran", "New Zealand"],
+    "H": ["Spain", "Cape Verde", "Saudi Arabia", "Uruguay"],
+    "I": ["France", "Senegal", "Iraq", "Norway"],
+    "J": ["Argentina", "Algeria", "Austria", "Jordan"],
+    "K": ["Portugal", "DR Congo", "Uzbekistan", "Colombia"],
+    "L": ["England", "Croatia", "Ghana", "Panama"],
+}
 
     squad_values = {
         "Mexico": 226, "South Korea": 154, "South Africa": 50, "Czech Republic": 200,
@@ -156,78 +152,87 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
         "Portugal": 1050, "DR Congo": 110, "Uzbekistan": 35, "Colombia": 280,
         "England": 1500, "Croatia": 300, "Ghana": 200, "Panama": 20
     }
-
-    rows = []
+    #--------------GROUP STAGE--------------
+    rows=[]
     for group, teams in wc_groups.items():
         for team in teams:
-            rows.append({"Group": group, "Team": team, "Points": 0, "GD": 0, 'GF': 0, "GA": 0})
-
-    group_stage_result = pd.DataFrame(rows)
-
-    for match in group_stage_matches.itertuples(index=False):
-
+            rows.append({"Group": group,
+                        "Team": team,
+                        "Points": 0,
+                        "GD": 0,
+                        'GF': 0,
+                        "GA": 0})
+            
+    group_stage_result = pd.DataFrame(rows) #Gives us the starting group stage
+    for match in group_stage_matches.itertuples(index = False):
+        
+        
         if match.home_team not in country_elo or pd.isna(country_elo[match.home_team]):
             country_elo[match.home_team] = 1500.0
         if match.away_team not in country_elo or pd.isna(country_elo[match.away_team]):
             country_elo[match.away_team] = 1500.0
-
+        
         x = predict_match(match.home_team, match.away_team, wc_model, draw_threshold, history_dict, h2h_dict, country_elo, model_h, model_a, scaler, squad_values, country_elo[match.home_team], country_elo[match.away_team])
-        # print(f"{match.home_team} vs {match.away_team} ({x.home_score}-{x.away_score}, result: {x.outcome}), Prob: {x.probability}, diff: {x.diff}")
+        #print(f"{match.home_team} vs {match.away_team} ({x.home_score}-{x.away_score}, result: {x.outcome}), Prob: {x.probability}, diff: {x.diff}")
         group_stage_result.loc[group_stage_result['Team'] == match.home_team, 'Points'] += x.home_points
         group_stage_result.loc[group_stage_result['Team'] == match.away_team, 'Points'] += x.away_points
-
+        
         group_stage_result.loc[group_stage_result['Team'] == match.home_team, 'GD'] += x.home_score - x.away_score
         group_stage_result.loc[group_stage_result['Team'] == match.away_team, 'GD'] += x.away_score - x.home_score
-
+        
         group_stage_result.loc[group_stage_result['Team'] == match.home_team, 'GF'] += x.home_score
         group_stage_result.loc[group_stage_result['Team'] == match.away_team, 'GF'] += x.away_score
-
+        
         group_stage_result.loc[group_stage_result['Team'] == match.home_team, 'GA'] += x.away_score
         group_stage_result.loc[group_stage_result['Team'] == match.away_team, 'GA'] += x.home_score
-
+        
         if x.outcome == "Home Win": S = 1
         elif x.outcome == "Away Win": S = 0
         else: S = 0.5
-        new_away, new_home = update_elo(S, match.neutral, match.K_factor, match.home_score, match.away_score,
-                                        country_elo[match.away_team],
+        new_away, new_home = update_elo(S, match.neutral, match.K_factor,x.home_score, x.away_score, 
+                                        country_elo[match.away_team], 
                                         country_elo[match.home_team])
-
+        
         country_elo[match.home_team] = new_home
         country_elo[match.away_team] = new_away
-        update_team_history(match, history_dict)
+        update_team_history(match, x.home_score, x.away_score, history_dict)
         update_h2h(match, h2h_dict)
+        
+    group_stage_result = group_stage_result.sort_values(['Group', 'Points', 'GD', 'GF'], ascending=[True, False, False, False]).reset_index(drop=True)    
 
-    group_stage_result = group_stage_result.sort_values(['Group', 'Points', 'GD', 'GF'], ascending=[True, False, False, False]).reset_index(drop=True)
-    # print(group_stage_result)
-
-    # ------------------------------------------------------------------ #
-    #  ROUND OF 32                                                         #
-    # ------------------------------------------------------------------ #
-
-    top2 = group_stage_result.groupby('Group').head(2).copy()
-    third = group_stage_result.groupby('Group').nth(2).copy()
+    #--------------ROUND OF 32---------------
+    
+    top2 = group_stage_result.groupby('Group').head(2).copy() #Teams that placed top 2 in their group which qualifies
+    third = group_stage_result.groupby('Group').nth(2).copy() #All teams that placed third (only 8 of them move on)
 
     best8_third = third.sort_values(
-        ['Points', 'GD', 'GF'],
+        ['Points', 'GD', 'GF'], 
         ascending=[False, False, False]
     ).head(8)
 
-    thirds_slot_map = {
-        'E': 'ABCDFEGHIJKL',
-        'I': 'ABCDFEGHIJKL',
-        'A': 'ABCDFEGHIJKL',
-        'L': 'ABCDFEGHIJKL',
-        'D': 'ABCDFEGHIJKL',
-        'G': 'ABCDFEGHIJKL',
-        'B': 'ABCDFEGHIJKL',
-        'K': 'ABCDFEGHIJKL',
+    thirds_slot_map = { #Needs to be fixed
+        'E': 'ABCDEFGHIJKL',
+        'I': 'ABCDEFGHIJKL', 
+        'A': 'ABCDEFGHIJKL',
+        'L': 'ABCDEFGHIJKL',
+        'D': 'ABCDEFGHIJKL',
+        'G': 'ABCDEFGHIJKL',
+        'B': 'ABCDEFGHIJKL',
+        'K': 'ABCDEFGHIJKL',
     }
 
     winners = {g: teams.iloc[0]['Team'] for g, teams in group_stage_result.groupby('Group')}
     runners = {g: teams.iloc[1]['Team'] for g, teams in group_stage_result.groupby('Group')}
 
     available_thirds = {row.Group: row.Team for row in best8_third.itertuples()}
-    assignments = assign_thirds(thirds_slot_map, available_thirds)
+    assignments = {}
+    used = set()
+    for winner_group, eligible_groups in thirds_slot_map.items():
+        for g in eligible_groups:
+            if g in available_thirds and g not in used:
+                assignments[winner_group] = available_thirds[g]
+                used.add(g)
+                break
 
     r32_matchups = {
         73: (runners['A'], runners['B']),
@@ -252,176 +257,180 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
     r16_teams = {}
 
     for match, teams in r32_matchups.items():
-        x = predict_match(teams[0], teams[1], wc_model, draw_threshold, history_dict, h2h_dict, country_elo, model_h, model_a, scaler, squad_values, country_elo[teams[0]], country_elo[teams[1]])
-
-        if x.outcome == "Home Win":
+        #teams[0] = home team, team[1] = away team
+        x=predict_match(teams[0], teams[1], wc_model, draw_threshold, history_dict, h2h_dict, country_elo, model_h, model_a, scaler, squad_values, country_elo[teams[0]], country_elo[teams[1]])
+        
+        if x.outcome == "Home Win": 
             S, winner = 1, teams[0]
-        elif x.outcome == "Away Win":
+        elif x.outcome == "Away Win": 
             S, winner = 0, teams[1]
-        else:
+        else: 
             S = .5
             winner = teams[0] if x.diff > 0 else teams[1]
 
         r16_teams[match] = winner
         r32_rows.append({
-            'home_team': teams[0], 'away_team': teams[1],
-            'home_score': x.home_score, 'away_score': x.away_score,
-            'result': S, 'neutral': 1, 'K_factor': 50, 'winner': winner
+            'home_team': teams[0],
+            'away_team': teams[1],
+            'home_score': x.home_score,
+            'away_score': x.away_score,
+            'result': S,
+            'neutral': 1,
+            'K_factor': 50,
+            'winner': winner
         })
+        
 
-        # print(f"{teams[0]} {x.home_score} - {x.away_score} {teams[1]} → {winner}")
-
-        new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score,
-                                        country_elo[teams[0]],
+        new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score, 
+                                        country_elo[teams[0]], 
                                         country_elo[teams[1]])
-
+        
         country_elo[teams[0]] = new_home
         country_elo[teams[1]] = new_away
 
-    # print(r16_teams)
-
-    # ------------------------------------------------------------------ #
-    #  ROUND OF 16                                                         #
-    # ------------------------------------------------------------------ #
-
+    #------------ROUND OF 16-----------
     r16_matchups = {
-        89: (r16_teams[74], r16_teams[77]),
-        90: (r16_teams[73], r16_teams[75]),
-        91: (r16_teams[76], r16_teams[78]),
-        92: (r16_teams[79], r16_teams[80]),
-        93: (r16_teams[83], r16_teams[84]),
-        94: (r16_teams[81], r16_teams[82]),
-        95: (r16_teams[86], r16_teams[88]),
-        96: (r16_teams[85], r16_teams[87])
-    }
+    89: (r16_teams[74], r16_teams[77]),
+    90: (r16_teams[73], r16_teams[75]),
+    91: (r16_teams[76], r16_teams[78]),
+    92: (r16_teams[79], r16_teams[80]),
+    93: (r16_teams[83], r16_teams[84]),
+    94: (r16_teams[81], r16_teams[82]),
+    95: (r16_teams[86], r16_teams[88]),
+    96: (r16_teams[85], r16_teams[87])
+}
 
     r16_rows = []
     r8_teams = {}
 
     for match, teams in r16_matchups.items():
-        x = predict_match(teams[0], teams[1], wc_model, draw_threshold, history_dict, h2h_dict, country_elo, model_h, model_a, scaler, squad_values, country_elo[teams[0]], country_elo[teams[1]])
+        #teams[0] = home team, team[1] = away team
+        x=predict_match(teams[0], teams[1], wc_model, draw_threshold, history_dict, h2h_dict, country_elo, model_h, model_a, scaler, squad_values, country_elo[teams[0]], country_elo[teams[1]])
 
-        if x.outcome == "Home Win":
+        if x.outcome == "Home Win": 
             S, winner = 1, teams[0]
-        elif x.outcome == "Away Win":
+        elif x.outcome == "Away Win": 
             S, winner = 0, teams[1]
-        else:
+        else: 
             S = .5
             winner = teams[0] if x.diff > 0 else teams[1]
 
         r8_teams[match] = winner
         r16_rows.append({
-            'home_team': teams[0], 'away_team': teams[1],
-            'home_score': x.home_score, 'away_score': x.away_score,
-            'result': S, 'neutral': 1, 'K_factor': 50, 'winner': winner
+            'home_team': teams[0],
+            'away_team': teams[1],
+            'home_score': x.home_score,
+            'away_score': x.away_score,
+            'result': S,
+            'neutral': 1,
+            'K_factor': 50,
+            'winner': winner
         })
+        
 
-        # print(f"{teams[0]} {x.home_score} - {x.away_score} {teams[1]} → {winner}")
-
-        new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score,
-                                        country_elo[teams[0]],
+        new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score, 
+                                        country_elo[teams[0]], 
                                         country_elo[teams[1]])
-
+        
         country_elo[teams[0]] = new_home
         country_elo[teams[1]] = new_away
-
-    # ------------------------------------------------------------------ #
-    #  QUARTER FINALS                                                      #
-    # ------------------------------------------------------------------ #
-
+    
+    #---------QUARTER FINALS-----------
     QF_matchups = {
-        97:  (r8_teams[89], r8_teams[90]),
-        98:  (r8_teams[93], r8_teams[94]),
-        99:  (r8_teams[91], r8_teams[92]),
-        100: (r8_teams[95], r8_teams[96]),
-    }
+  97: (r8_teams[89], r8_teams[90]),
+  98: (r8_teams[93], r8_teams[94]), 
+  99: (r8_teams[91], r8_teams[92]), 
+  100: (r8_teams[95], r8_teams[96]), 
+}
 
     QF_rows = []
     SF_teams = {}
 
     for match, teams in QF_matchups.items():
-        x = predict_match(teams[0], teams[1], wc_model, draw_threshold, history_dict, h2h_dict, country_elo, model_h, model_a, scaler, squad_values, country_elo[teams[0]], country_elo[teams[1]])
+        #teams[0] = home team, team[1] = away team
+        x=predict_match(teams[0], teams[1], wc_model, draw_threshold, history_dict, h2h_dict, country_elo, model_h, model_a, scaler, squad_values, country_elo[teams[0]], country_elo[teams[1]])
 
-        if x.outcome == "Home Win":
+        if x.outcome == "Home Win": 
             S, winner = 1, teams[0]
-        elif x.outcome == "Away Win":
+        elif x.outcome == "Away Win": 
             S, winner = 0, teams[1]
-        else:
+        else: 
             S = .5
             winner = teams[0] if x.diff > 0 else teams[1]
 
         SF_teams[match] = winner
         QF_rows.append({
-            'home_team': teams[0], 'away_team': teams[1],
-            'home_score': x.home_score, 'away_score': x.away_score,
-            'result': S, 'neutral': 1, 'K_factor': 50, 'winner': winner
+            'home_team': teams[0],
+            'away_team': teams[1],
+            'home_score': x.home_score,
+            'away_score': x.away_score,
+            'result': S,
+            'neutral': 1,
+            'K_factor': 50,
+            'winner': winner
         })
+        
 
-        # print(f"{teams[0]} {x.home_score} - {x.away_score} {teams[1]} → {winner}")
-
-        new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score,
-                                        country_elo[teams[0]],
+        new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score, 
+                                        country_elo[teams[0]], 
                                         country_elo[teams[1]])
-
+        
         country_elo[teams[0]] = new_home
         country_elo[teams[1]] = new_away
-
-    # ------------------------------------------------------------------ #
-    #  SEMI FINALS                                                         #
-    # ------------------------------------------------------------------ #
-
+        
+    #---------SEMI FINALS------------
     SF_matchups = {
-        101: (SF_teams[97],  SF_teams[98]),
-        102: (SF_teams[99], SF_teams[100])
-    }
+  101: (SF_teams[97], SF_teams[98]),
+  102: (SF_teams[99], SF_teams[100]) 
+}
 
     SF_rows = []
     FINAL_teams = {}
 
     for match, teams in SF_matchups.items():
-        x = predict_match(teams[0], teams[1], wc_model, draw_threshold, history_dict, h2h_dict, country_elo, model_h, model_a, scaler, squad_values, country_elo[teams[0]], country_elo[teams[1]])
+        #teams[0] = home team, team[1] = away team
+        x=predict_match(teams[0], teams[1], wc_model, draw_threshold, history_dict, h2h_dict, country_elo, model_h, model_a, scaler, squad_values, country_elo[teams[0]], country_elo[teams[1]])
 
-        if x.outcome == "Home Win":
+        if x.outcome == "Home Win": 
             S, winner = 1, teams[0]
-        elif x.outcome == "Away Win":
+        elif x.outcome == "Away Win": 
             S, winner = 0, teams[1]
-        else:
+        else: 
             S = .5
             winner = teams[0] if x.diff > 0 else teams[1]
 
         FINAL_teams[match] = winner
         SF_rows.append({
-            'home_team': teams[0], 'away_team': teams[1],
-            'home_score': x.home_score, 'away_score': x.away_score,
-            'result': S, 'neutral': 1, 'K_factor': 50, 'winner': winner
+            'home_team': teams[0],
+            'away_team': teams[1],
+            'home_score': x.home_score,
+            'away_score': x.away_score,
+            'result': S,
+            'neutral': 1,
+            'K_factor': 50,
+            'winner': winner
         })
+        
 
-        # print(f"{teams[0]} {x.home_score} - {x.away_score} {teams[1]} → {winner}")
-
-        new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score,
-                                        country_elo[teams[0]],
+        new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score, 
+                                        country_elo[teams[0]], 
                                         country_elo[teams[1]])
-
+        
         country_elo[teams[0]] = new_home
         country_elo[teams[1]] = new_away
-
-    # ------------------------------------------------------------------ #
-    #  FINAL                                                               #
-    # ------------------------------------------------------------------ #
-
+        
+    #-----------FINALS-----------
     for match, teams in {103: (FINAL_teams[101], FINAL_teams[102])}.items():
-        x = predict_match(teams[0], teams[1], wc_model, draw_threshold, history_dict, h2h_dict, country_elo, model_h, model_a, scaler, squad_values, country_elo[teams[0]], country_elo[teams[1]])
+        #teams[0] = home team, team[1] = away team
+        x=predict_match(teams[0], teams[1], wc_model, draw_threshold, history_dict, h2h_dict, country_elo, model_h, model_a, scaler, squad_values, country_elo[teams[0]], country_elo[teams[1]])
 
-        if x.outcome == "Home Win":
+        if x.outcome == "Home Win": 
             S, winner = 1, teams[0]
-        elif x.outcome == "Away Win":
+        elif x.outcome == "Away Win": 
             S, winner = 0, teams[1]
-        else:
+        else: 
             S = .5
             winner = teams[0] if x.diff > 0 else teams[1]
 
-        # print(f"{teams[0]} {x.home_score} - {x.away_score} {teams[1]} → {winner}")
-
     return winner
-    
-    
+

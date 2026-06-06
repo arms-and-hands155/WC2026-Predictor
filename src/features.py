@@ -5,14 +5,14 @@ import numpy as np
 
 team_history = defaultdict(lambda: deque(maxlen=10))
 
-def update_team_history(row, team_history):
+def update_team_history(row, home_score, away_score, team_history):
     # Home Team Stats
     h_pts = 3 if row.result == 1 else (1 if row.result == 0.5 else 0)
-    team_history[row.home_team].append((h_pts, row.home_score - row.away_score))
+    team_history[row.home_team].append((h_pts, home_score - away_score))
     
     # Away Team Stats
     a_pts = 3 if row.result == 0 else (1 if row.result == 0.5 else 0)
-    team_history[row.away_team].append((a_pts, row.away_score - row.home_score))
+    team_history[row.away_team].append((a_pts, away_score - home_score))
 
 
 def get_stats(team, history_dict):
