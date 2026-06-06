@@ -1,4 +1,11 @@
 .env
 .env.local
+
 # Ignore all CSV files in the data folder
 data/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/

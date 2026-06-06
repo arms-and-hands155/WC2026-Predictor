@@ -37,14 +37,13 @@ def predict_match(home_team,
     
     model_features = ['elo_diff', 'home_elo', 'away_elo', 'home_form', 'away_form', 'h2h', 'home_gd', 'away_gd', 'squad_value_diff']
     X = build_features(home_team, away_team, history_dict, h2h_dict, country_elo, squad_values, home_elo, away_elo)
-    X=X[model_features]
+    X = X[model_features]
     X_scaled = scalar.transform(X)
-    
+
     probability = model.predict_proba(X_scaled)[0]
-    
-    calibration_factor = .25
-    lambda_h = goal_model_h.predict(X_scaled)[0] * calibration_factor
-    lambda_a = goal_model_a.predict(X_scaled)[0] * calibration_factor
+
+    lambda_h = goal_model_h.predict(X)[0]
+    lambda_a = goal_model_a.predict(X)[0]
     
     h_goals = np.random.poisson(lambda_h)
     a_goals = np.random.poisson(lambda_a)
@@ -137,20 +136,20 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
     "K": ["Portugal", "DR Congo", "Uzbekistan", "Colombia"],
     "L": ["England", "Croatia", "Ghana", "Panama"],
 }
-
+    #Squad value of countries based off trasnfermarket (in euros)
     squad_values = {
-        "Mexico": 226, "South Korea": 154, "South Africa": 50, "Czech Republic": 200,
-        "Canada": 230, "Switzerland": 360, "Qatar": 23, "Bosnia and Herzegovina": 80,
-        "Brazil": 1100, "Morocco": 350, "Haiti": 10, "Scotland": 200,
-        "United States": 310, "Paraguay": 100, "Australia": 40, "Turkey": 320,
-        "Germany": 850, "Curaçao": 5, "Ivory Coast": 300, "Ecuador": 230,
-        "Netherlands": 600, "Japan": 290, "Sweden": 210, "Tunisia": 45,
-        "Belgium": 450, "Egypt": 130, "Iran": 50, "New Zealand": 20,
-        "Spain": 1000, "Cape Verde": 30, "Saudi Arabia": 30, "Uruguay": 480,
-        "France": 1200, "Senegal": 250, "Iraq": 10, "Norway": 450,
-        "Argentina": 800, "Algeria": 180, "Austria": 240, "Jordan": 15,
-        "Portugal": 1050, "DR Congo": 110, "Uzbekistan": 35, "Colombia": 280,
-        "England": 1500, "Croatia": 300, "Ghana": 200, "Panama": 20
+        "Mexico": 191, "South Korea": 139, "South Africa": 50, "Czech Republic": 188,
+        "Canada": 196, "Switzerland": 332, "Qatar": 22, "Bosnia and Herzegovina": 151,
+        "Brazil": 923, "Morocco": 498, "Haiti": 55, "Scotland": 170,
+        "United States": 385, "Paraguay": 153, "Australia": 77, "Turkey": 473,
+        "Germany": 947, "Curaçao": 25, "Ivory Coast": 522, "Ecuador": 368,
+        "Netherlands": 804, "Japan": 270, "Sweden": 406, "Tunisia": 70,
+        "Belgium": 547, "Egypt": 116, "Iran": 32, "New Zealand": 34,
+        "Spain": 1220, "Cape Verde": 54, "Saudi Arabia": 40, "Uruguay": 360,
+        "France": 1520, "Senegal": 478, "Iraq": 21, "Norway": 589,
+        "Argentina": 782, "Algeria": 256, "Austria": 242, "Jordan": 20,
+        "Portugal": 1010, "DR Congo": 140, "Uzbekistan": 85, "Colombia": 300,
+        "England": 1360, "Croatia": 387, "Ghana": 234, "Panama": 34
     }
     #--------------GROUP STAGE--------------
     rows=[]
@@ -189,14 +188,14 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
         if x.outcome == "Home Win": S = 1
         elif x.outcome == "Away Win": S = 0
         else: S = 0.5
-        new_away, new_home = update_elo(S, match.neutral, match.K_factor,x.home_score, x.away_score, 
-                                        country_elo[match.away_team], 
-                                        country_elo[match.home_team])
+        # new_away, new_home = update_elo(S, match.neutral, match.K_factor,x.home_score, x.away_score, 
+        #                                 country_elo[match.away_team], 
+        #                                 country_elo[match.home_team])
         
-        country_elo[match.home_team] = new_home
-        country_elo[match.away_team] = new_away
-        update_team_history(match, x.home_score, x.away_score, history_dict)
-        update_h2h(match, h2h_dict)
+        # country_elo[match.home_team] = new_home
+        # country_elo[match.away_team] = new_away
+        # update_team_history(match, x.home_score, x.away_score, history_dict)
+        # update_h2h(match, h2h_dict)
         
     group_stage_result = group_stage_result.sort_values(['Group', 'Points', 'GD', 'GF'], ascending=[True, False, False, False]).reset_index(drop=True)    
 
@@ -266,7 +265,8 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
             S, winner = 0, teams[1]
         else: 
             S = .5
-            winner = teams[0] if x.diff > 0 else teams[1]
+            p_home_wins_pens = 0.5 + (country_elo[teams[0]] - country_elo[teams[1]]) / 4000
+            winner = teams[0] if np.random.random() < np.clip(p_home_wins_pens, 0.3, 0.7) else teams[1]
 
         r16_teams[match] = winner
         r32_rows.append({
@@ -281,12 +281,12 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
         })
         
 
-        new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score, 
-                                        country_elo[teams[0]], 
-                                        country_elo[teams[1]])
+        # new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score, 
+        #                                 country_elo[teams[0]], 
+        #                                 country_elo[teams[1]])
         
-        country_elo[teams[0]] = new_home
-        country_elo[teams[1]] = new_away
+        # country_elo[teams[0]] = new_home
+        # country_elo[teams[1]] = new_away
 
     #------------ROUND OF 16-----------
     r16_matchups = {
@@ -313,7 +313,8 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
             S, winner = 0, teams[1]
         else: 
             S = .5
-            winner = teams[0] if x.diff > 0 else teams[1]
+            p_home_wins_pens = 0.5 + (country_elo[teams[0]] - country_elo[teams[1]]) / 4000
+            winner = teams[0] if np.random.random() < np.clip(p_home_wins_pens, 0.3, 0.7) else teams[1]
 
         r8_teams[match] = winner
         r16_rows.append({
@@ -328,12 +329,12 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
         })
         
 
-        new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score, 
-                                        country_elo[teams[0]], 
-                                        country_elo[teams[1]])
+        # new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score, 
+        #                                 country_elo[teams[0]], 
+        #                                 country_elo[teams[1]])
         
-        country_elo[teams[0]] = new_home
-        country_elo[teams[1]] = new_away
+        # country_elo[teams[0]] = new_home
+        # country_elo[teams[1]] = new_away
     
     #---------QUARTER FINALS-----------
     QF_matchups = {
@@ -356,7 +357,8 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
             S, winner = 0, teams[1]
         else: 
             S = .5
-            winner = teams[0] if x.diff > 0 else teams[1]
+            p_home_wins_pens = 0.5 + (country_elo[teams[0]] - country_elo[teams[1]]) / 4000
+            winner = teams[0] if np.random.random() < np.clip(p_home_wins_pens, 0.3, 0.7) else teams[1]
 
         SF_teams[match] = winner
         QF_rows.append({
@@ -371,12 +373,12 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
         })
         
 
-        new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score, 
-                                        country_elo[teams[0]], 
-                                        country_elo[teams[1]])
+        # new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score, 
+        #                                 country_elo[teams[0]], 
+        #                                 country_elo[teams[1]])
         
-        country_elo[teams[0]] = new_home
-        country_elo[teams[1]] = new_away
+        # country_elo[teams[0]] = new_home
+        # country_elo[teams[1]] = new_away
         
     #---------SEMI FINALS------------
     SF_matchups = {
@@ -397,7 +399,8 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
             S, winner = 0, teams[1]
         else: 
             S = .5
-            winner = teams[0] if x.diff > 0 else teams[1]
+            p_home_wins_pens = 0.5 + (country_elo[teams[0]] - country_elo[teams[1]]) / 4000
+            winner = teams[0] if np.random.random() < np.clip(p_home_wins_pens, 0.3, 0.7) else teams[1]
 
         FINAL_teams[match] = winner
         SF_rows.append({
@@ -412,12 +415,12 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
         })
         
 
-        new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score, 
-                                        country_elo[teams[0]], 
-                                        country_elo[teams[1]])
+        # new_away, new_home = update_elo(S, 1, 50, x.home_score, x.away_score, 
+        #                                 country_elo[teams[0]], 
+        #                                 country_elo[teams[1]])
         
-        country_elo[teams[0]] = new_home
-        country_elo[teams[1]] = new_away
+        # country_elo[teams[0]] = new_home
+        # country_elo[teams[1]] = new_away
         
     #-----------FINALS-----------
     for match, teams in {103: (FINAL_teams[101], FINAL_teams[102])}.items():
@@ -430,7 +433,8 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
             S, winner = 0, teams[1]
         else: 
             S = .5
-            winner = teams[0] if x.diff > 0 else teams[1]
+            p_home_wins_pens = 0.5 + (country_elo[teams[0]] - country_elo[teams[1]]) / 4000
+            winner = teams[0] if np.random.random() < np.clip(p_home_wins_pens, 0.3, 0.7) else teams[1]
 
     return winner
 

@@ -56,14 +56,14 @@ def get_h2h_stat(home_team, away_team, h2h_dict):
 def build_features(home_team, away_team, history_dict, h2h_dict, country_elo, squad_values, home_elo, away_elo):
     home_form, home_gd = get_stats(home_team, history_dict)
     away_form, away_gd = get_stats(away_team, history_dict)
-    
+
     home_val = squad_values.get(home_team, 20)
     away_val = squad_values.get(away_team, 20)
-    
+
     squad_value_diff = np.log1p(home_val) - np.log1p(away_val)
-    
+
     h2h = get_h2h_stat(home_team, away_team, h2h_dict)
-    
+
     return pd.DataFrame([{
         'elo_diff': country_elo[home_team]-country_elo[away_team],
         'home_form': home_form,
