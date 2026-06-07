@@ -438,3 +438,12 @@ def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
 
     return winner
 
+def predict_game(lambda_h, lambda_a, n=10000):
+    h_goals = np.random.poisson(lambda_h, n)
+    a_goals = np.random.poisson(lambda_a, n)
+    
+    p_home = (h_goals > a_goals).mean()
+    p_draw = (h_goals == a_goals).mean()
+    p_away = (h_goals < a_goals).mean()
+    
+    return p_home, p_draw, p_away

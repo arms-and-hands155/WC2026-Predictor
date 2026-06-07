@@ -87,3 +87,4 @@ def get_historical_tier_diff(row, squad_values):
         a_val = 1000 if row['away_team'] in elite else 100
         
     return np.log1p(h_val) - np.log1p(a_val)
+

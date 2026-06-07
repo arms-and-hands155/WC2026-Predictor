@@ -64,6 +64,7 @@ def prepare_matches(df, start_date, end_date): #Filter matches to a date range a
         lambda row: get_result(row['home_score'], row['away_score']), axis=1
     )
     out['K_factor'] = out['tournament'].apply(assign_k)
+    out['tournament_weight'] = out['tournament'].apply(tournament_weight)
     return out
 
 #looping through matches and updating elo
@@ -82,5 +83,38 @@ def run_elo_updates(relevant_matches_df, country_elo):
         
     return country_elo
 
-
+def tournament_weight(t):
+    if t in {'FIFA World Cup'}:          return 5
+    if t in {'UEFA Euro', 'Copa América', 'African Cup of Nations', 'AFC Asian Cup',
+    'Gold Cup', 'CONCACAF Championship', 'Oceania Nations Cup',
+    'Confederations Cup',}:        return 4
+    if t in {'FIFA World Cup qualification', 'UEFA Euro qualification',
+    'African Cup of Nations qualification', 'AFC Asian Cup qualification',
+    'Gold Cup qualification', 'CONCACAF Championship qualification',
+    'Copa América qualification', 'Oceania Nations Cup qualification',
+    'UEFA Nations League', 'CONCACAF Nations League',
+    'CONCACAF Nations League qualification',}: return 3
+    if t in {
+    'CECAFA Cup', 'COSAFA Cup', 'COSAFA Cup qualification', 'WAFF Championship',
+    'Amílcar Cabral Cup', 'All-African Games', 'UDEAC Cup', 'UNIFFAC Cup',
+    'West African Cup', 'Nile Basin Tournament', 'African Friendship Games',
+    # Asia / Oceania
+    'Gulf Cup', 'Arab Cup', 'Arab Cup qualification', 'SAFF Cup',
+    'AFF Championship', 'AFF Championship qualification', 'EAFF Championship',
+    'EAFF Championship qualification', 'ASEAN Championship',
+    'ASEAN Championship qualification', 'AFC Challenge Cup',
+    'AFC Challenge Cup qualification', 'Asian Games', 'CAFA Nations Cup',
+    'Southeast Asian Games', 'South Asian Games', 'Dynasty Cup',
+    'Pacific Games', 'South Pacific Games', 'Melanesia Cup',
+    'Indian Ocean Island Games', 'Afro-Asian Games',
+    # Europe
+    'British Home Championship', 'Nordic Championship', 'Baltic Cup',
+    'Balkan Cup', 'Central European International Cup',
+    # Americas
+    'CFU Caribbean Cup', 'CFU Caribbean Cup qualification', 'UNCAF Cup',
+    'Central American and Caribbean Games', 'Pan American Championship',
+    'CCCF Championship', 'Bolivarian Games', 'NAFC Championship',
+    # Multi-sport
+    'Olympic Games',}:           return 2
+    return 1   
 
