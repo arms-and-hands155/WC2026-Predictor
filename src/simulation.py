@@ -794,7 +794,67 @@ def simulate_tournament(home_goal_model, away_goal_model, country_elo, team_to_c
         'bracket': pd.concat([r32_results, r16_results, QF_results, SF_results, results], ignore_index=True)
     }
     
+def run_monte_carlo(n_simulations, home_goal_model, away_goal_model, country_elo, team_to_confederation, feature, df_groups, df_group_fixture):
     
-
+    all_teams = df_groups['nation'].tolist()
     
+    stage_counts = {team: {
+        'group_stage': 0,
+        'r32': 0,
+        'r16': 0,
+        'qf': 0,
+        'sf': 0,
+        'final': 0,
+        'winner': 0
+    } for team in all_teams}
     
+    for i in range(n_simulations):
+        if (i + 1) % 100 == 0:
+            print(f"Completed {i + 1}/{n_simulations} simulations")
+        
+        tournament = simulate_tournament(home_goal_model, away_goal_model, country_elo, 
+                                         team_to_confederation, feature, df_groups, df_group_fixture)
+        summary = tournament['summary']
+        
+        for team in all_teams:
+            stage_counts[team]['group_stage'] += 1  # everyone plays group stage
+        
+        for team in summary['r32_teams']:
+            if team in stage_counts:
+                stage_counts[team]['r32'] += 1
+        
+        for team in summary['r16_teams']:
+            if team in stage_counts:
+                stage_counts[team]['r16'] += 1
+        
+        for team in summary['qf_teams']:
+            if team in stage_counts:
+                stage_counts[team]['qf'] += 1
+        
+        for team in summary['sf_teams']:
+            if team in stage_counts:
+                stage_counts[team]['sf'] += 1
+        
+        for team in summary['final_teams']:
+            if team in stage_counts:
+                stage_counts[team]['final'] += 1
+        
+        if summary['winner'] in stage_counts:
+            stage_counts[summary['winner']]['winner'] += 1
+    
+    # Convert to DataFrame with percentages
+    rows = []
+    for team, counts in stage_counts.items():
+        rows.append({
+            'team': team,
+            'r32_%': round(counts['r32'] / n_simulations * 100, 1),
+            'r16_%': round(counts['r16'] / n_simulations * 100, 1),
+            'qf_%': round(counts['qf'] / n_simulations * 100, 1),
+            'sf_%': round(counts['sf'] / n_simulations * 100, 1),
+            'final_%': round(counts['final'] / n_simulations * 100, 1),
+            'winner_%': round(counts['winner'] / n_simulations * 100, 1),
+        })
+    
+    df_results = pd.DataFrame(rows).sort_values('winner_%', ascending=False).reset_index(drop=True)
+    
+    return df_results
