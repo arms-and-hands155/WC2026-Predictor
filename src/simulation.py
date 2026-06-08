@@ -5,6 +5,7 @@ import numpy as np
 import copy
 import pandas as pd
 from src.elo import update_elo
+from scipy.stats import poisson
 
 
 goal_model_h = joblib.load('home_goals_model.joblib')
@@ -21,69 +22,47 @@ class  Matchprediction:
     home_score: int
     away_score: int
 
-def predict_match(home_team, 
-                  away_team, 
-                  model, 
-                  draw_threshold, 
-                  history_dict, 
-                  h2h_dict,
-                  country_elo, 
-                  goal_model_h,
-                  goal_model_a,
-                  scalar,
-                  squad_values,
-                  home_elo,
-                  away_elo):
+def predict_match(home_team, away_team, model_home, model_away, team_to_confederation, country_elo, feature):
+    X = build_features(home_team, away_team, country_elo, team_to_confederation, feature)
     
-    model_features = ['elo_diff', 'home_elo', 'away_elo', 'home_form', 'away_form', 'h2h', 'home_gd', 'away_gd', 'squad_value_diff']
-    X = build_features(home_team, away_team, history_dict, h2h_dict, country_elo, squad_values, home_elo, away_elo)
-    X = X[model_features]
-    X_scaled = scalar.transform(X)
-
-    probability = model.predict_proba(X_scaled)[0]
-
-    lambda_h = goal_model_h.predict(X)[0]
-    lambda_a = goal_model_a.predict(X)[0]
+    home_goals_predict = model_home.predict(X)[0]
+    away_goals_predict = model_away.predict(X)[0]
     
-    h_goals = np.random.poisson(lambda_h)
-    a_goals = np.random.poisson(lambda_a)
+    score_probability = []
     
-    outcome_idx = np.random.choice([0, 1, 2], p=probability)
+    home_win = 0
+    away_win = 0
+    draw = 0
     
-    diff = probability[2] - probability[0]
+    for home_goals in range(9):
+        for away_goals in range(9):
+            
+            prob = poisson.pmf(away_goals, away_goals_predict) * poisson.pmf(home_goals, home_goals_predict)
+            
+            score_probability.append({
+                'home_goals': home_goals,
+                'away_goals': away_goals,
+                'probability': prob
+            })
+            
+            if home_goals > away_goals:
+                home_win += prob
+            elif home_goals == away_goals:
+                draw += prob
+            else:
+                away_win += prob
     
-    # if abs(diff) < draw_threshold:
-    #     avg_goals = np.random.poisson((lambda_h + lambda_a) / 2)
-    #     h_goals = a_goals = avg_goals
-    #     outcome, hp, ap = "Draw", 1, 1
-    #     prob = probability[1]
-        
-    # elif diff > 0:
-    #     if h_goals <= a_goals: h_goals = a_goals + 1 #incase lambdas give out incorrect numbers in correspondence to result
-    #     outcome, hp, ap = "Home Win", 3, 0
-    #     prob = probability[2]
-    # else:
-    #     if a_goals <= h_goals: a_goals = h_goals + 1
-    #     outcome, hp, ap = "Away Win", 0, 3
-    #     prob = probability[0]
-    
-    if outcome_idx == 2: #Home_win
-        outcome, hp, ap = "Home Win", 3, 0
-        if h_goals <= a_goals:
-            h_goals = a_goals + 1
-    elif outcome_idx == 0:        # Away win
-        outcome, hp, ap = "Away Win", 0, 3
-        if a_goals <= h_goals:
-            a_goals = h_goals + 1
-    else:                         # Draw
-        outcome, hp, ap = "Draw", 1, 1
-        avg = (h_goals + a_goals) // 2
-        h_goals = a_goals = avg
-
-    prob = probability[outcome_idx]
-    
-    return Matchprediction(outcome, hp, ap, round(prob, 4), round(abs(diff), 4), int(h_goals), int(a_goals))
-
+    return {
+        'home_team': home_team,
+        'away_team': away_team,
+        'home_xg': home_goals_predict,
+        'away_xg': away_goals_predict,
+        'home_win': home_win,
+        'away_win': away_win,
+        'draw': draw,
+        'score_probs': pd.DataFrame(score_probability)
+    }
+            
 def assign_thirds(thirds_slot_map, available_thirds):
     assignments = {}
     used = set()
@@ -112,8 +91,6 @@ def assign_thirds(thirds_slot_map, available_thirds):
 
     return assignments
     
-
-
 def run_tournament(wc_model, draw_threshold, history_dict, h2h_dict,
                    country_elo, model_h, model_a, scaler, group_stage_matches):
 
@@ -447,3 +424,300 @@ def predict_game(lambda_h, lambda_a, n=10000):
     p_away = (h_goals < a_goals).mean()
     
     return p_home, p_draw, p_away
+
+def simulate_match(home_team, away_team, home_goal_model, away_goal_model, country_elo, team_to_confederation, feature):
+    np.random.seed()
+    predict = predict_match(
+        home_team, away_team, home_goal_model, away_goal_model, team_to_confederation, country_elo, feature)
+    
+    h_goals = np.random.poisson(predict['home_xg'])
+    a_goals = np.random.poisson(predict['away_xg'])
+    
+    if h_goals > a_goals:
+        result = 'home_win'
+        winner = home_team
+    elif a_goals > h_goals:
+        result = 'away_win'
+        winner = away_team
+    else:
+        result = 'draw'
+        winner = None
+    
+    return {
+        "home_team": home_team,
+        'away_team': away_team,
+        'home_goals': h_goals,
+        'away_goals': a_goals,
+        'result': result,
+        'winner': winner
+    }
+    
+def create_empty_group_table(group_teams):
+    table = pd.DataFrame({
+        "team": group_teams,
+        "played": 0,
+        "wins": 0,
+        "draws": 0,
+        "losses": 0,
+        "goals_for": 0,
+        "goals_against": 0,
+        "goal_difference": 0,
+        "points": 0
+    })
+
+    return table
+
+def update_group_table(table, match):
+
+    home_team = match["home_team"]
+    away_team = match["away_team"]
+    home_goals = match["home_goals"]
+    away_goals = match["away_goals"]
+
+    # Update played
+    table.loc[table["team"] == home_team, "played"] += 1
+    table.loc[table["team"] == away_team, "played"] += 1
+
+    # Update goals
+    table.loc[table["team"] == home_team, "goals_for"] += home_goals
+    table.loc[table["team"] == home_team, "goals_against"] += away_goals
+
+    table.loc[table["team"] == away_team, "goals_for"] += away_goals
+    table.loc[table["team"] == away_team, "goals_against"] += home_goals
+
+    # Update result stats and points
+    if home_goals > away_goals:
+        table.loc[table["team"] == home_team, "wins"] += 1
+        table.loc[table["team"] == away_team, "losses"] += 1
+
+        table.loc[table["team"] == home_team, "points"] += 3
+
+    elif home_goals < away_goals:
+        table.loc[table["team"] == away_team, "wins"] += 1
+        table.loc[table["team"] == home_team, "losses"] += 1
+
+        table.loc[table["team"] == away_team, "points"] += 3
+
+    else:
+        table.loc[table["team"] == home_team, "draws"] += 1
+        table.loc[table["team"] == away_team, "draws"] += 1
+
+        table.loc[table["team"] == home_team, "points"] += 1
+        table.loc[table["team"] == away_team, "points"] += 1
+
+    # Recalculate goal difference
+    table["goal_difference"] = table["goals_for"] - table["goals_against"]
+
+    return table
+
+def rank_group_table(table):
+    table = table.copy()
+
+    # Temporary random tie-breaker for exact ties
+    table["random_tiebreaker"] = np.random.random(len(table))
+
+    table = (
+        table
+        .sort_values(
+            by=["points", "goal_difference", "goals_for", "random_tiebreaker"],
+            ascending=[False, False, False, False]
+        )
+        .reset_index(drop=True)
+    )
+
+    table["group_rank"] = table.index + 1
+
+    table = table.drop(columns=["random_tiebreaker"])
+
+    return table
+
+def simulate_group(group_name, df_groups, df_group_fixtures, home_goal_model, away_goal_model, 
+            country_elo, 
+            team_to_confederation, 
+            feature):
+    group_teams = (
+        df_groups[df_groups["group"] == group_name]
+        .sort_values("position")["nation"]
+        .tolist()
+    )
+
+    group_matches = df_group_fixtures[df_group_fixtures["group"] == group_name]
+
+    table = create_empty_group_table(group_teams)
+
+    simulated_matches = []
+
+    for _, row in group_matches.iterrows():
+        match = simulate_match(
+            row["home_team"],
+            row["away_team"],
+            home_goal_model,
+            away_goal_model, 
+            country_elo, 
+            team_to_confederation, 
+            feature
+        )
+
+        simulated_matches.append(match)
+        table = update_group_table(table, match)
+
+    ranked_table = rank_group_table(table)
+    ranked_table["group"] = group_name
+
+    return ranked_table, pd.DataFrame(simulated_matches)
+
+def simulate_group_stage(df_groups, df_group_fixture, home_goal_model, away_goal_model, 
+            country_elo, 
+            team_to_confederation, 
+            feature):
+
+    all_group_tables = []
+    all_group_matches = []
+
+    for group_name in sorted(df_groups["group"].unique()):
+        group_table, group_matches = simulate_group(group_name, 
+                                                    df_groups,
+                                                    df_group_fixture, 
+                                                    home_goal_model, 
+                                                    away_goal_model, 
+                                                    country_elo, 
+                                                    team_to_confederation, 
+                                                    feature)
+
+        all_group_tables.append(group_table)
+        all_group_matches.append(group_matches)
+
+    df_group_tables = pd.concat(all_group_tables, ignore_index=True)
+    df_group_matches = pd.concat(all_group_matches, ignore_index=True)
+
+    return df_group_tables, df_group_matches
+
+def construct_round32(teams_dict):
+    r32_matchups = {
+    73: (teams_dict['2A'], teams_dict['2B']),
+    74: (teams_dict['1E'], teams_dict['3ABCDF']),
+    75: (teams_dict['1F'], teams_dict['2C']),
+    76: (teams_dict['1C'], teams_dict['2F']),
+    77: (teams_dict['1I'], teams_dict['3CDFGH']),
+    78: (teams_dict['1E'], teams_dict['2I']),
+    79: (teams_dict['1A'], teams_dict['3CEFHI']),
+    80: (teams_dict['1L'], teams_dict['3EHIJK']),
+    81: (teams_dict['1D'], teams_dict['3BEFIJ']),
+    82: (teams_dict['1G'], teams_dict['3AEHIJ']),
+    83: (teams_dict['2K'], teams_dict['2L']),
+    84: (teams_dict['1H'], teams_dict['2J']),
+    85: (teams_dict['1B'], teams_dict['3EFGIJ']),
+    86: (teams_dict['1J'], teams_dict['2H']),
+    87: (teams_dict['1K'], teams_dict['3DEIJL']),
+    88: (teams_dict['2D'], teams_dict['2G'])
+}
+    
+    return r32_matchups
+
+def construct_round16(winners):
+    r16_matchups = {
+    89: (winners[74], winners[77]),
+    90: (winners[73], winners[75]),
+    91: (winners[76], winners[78]),
+    92: (winners[79], winners[80]),
+    93: (winners[83], winners[84]),
+    94: (winners[81], winners[82]),
+    95: (winners[86], winners[88]),
+    96: (winners[85], winners[87])
+}
+    
+    return r16_matchups
+
+def construct_QF(winners):
+    QF_matchups = {
+  97: (winners[89], winners[90]),
+  98: (winners[93], winners[94]), 
+  99: (winners[91], winners[92]), 
+  100: (winners[95], winners[96]), 
+}
+    
+    return QF_matchups
+
+def construct_SF(SF_teams):
+    SF_matchups = {
+    101: (SF_teams[97], SF_teams[98]),
+    102: (SF_teams[99], SF_teams[100]) 
+    }
+    
+    return SF_matchups
+
+
+def simulate_knockout_match(home_team, away_team, home_goal_model, away_goal_model, country_elo, team_to_confederation, feature):
+
+    predict = predict_match(
+        home_team, away_team, home_goal_model, away_goal_model, team_to_confederation, country_elo, feature)
+    
+    h_goals = np.random.poisson(predict['home_xg'])
+    a_goals = np.random.poisson(predict['away_xg'])
+    
+    if h_goals > a_goals:
+        result = 'home_win'
+        winner, loser = home_team, away_team
+        result_type = 'regular_time'
+    elif a_goals > h_goals:
+        result = 'away_win'
+        winner, loser = away_team, home_team
+        result_type = 'regular_time'
+    else:
+        home_strength = predict['home_win']
+        away_strength = predict['away_win']
+        result_type = 'OT/Pens'
+        
+        home_advance_prob = home_strength / (home_strength + away_strength)
+
+        if np.random.random() < home_advance_prob:
+            result = 'home_win'
+            winner = home_team
+            loser = away_team
+        else:
+            result = 'away_win'
+            winner = away_team
+            loser = home_team
+            
+
+    
+    return {
+        "home_team": home_team,
+        'away_team': away_team,
+        'home_goals': h_goals,
+        'away_goals': a_goals,
+        'result': result,
+        'result_type': result_type,
+        'winner': winner,
+        'loser': loser,
+        'home_win_prob': predict['home_win'],
+        'draw_prob': predict['draw'],
+        'away_win_prob': predict['away_win']
+    }
+
+def simulate_knockout_round(teams_dict, home_goal_model, away_goal_model, country_elo, team_to_confederation, feature):
+    results= []
+    winners = {}
+    
+    for k,v in teams_dict.items():
+        match_result = simulate_knockout_match(
+            v[0], v[1],home_goal_model, away_goal_model, country_elo, team_to_confederation, feature)
+        
+        results.append({
+            'home_team': v[0],
+            'away_team': v[1],
+            'home_goals': match_result['home_goals'],
+            'away_goals': match_result['away_goals'],
+            'result_type': match_result['result_type'],
+            'winner': match_result['winner'],
+            'loser': match_result['loser'],
+            'home_win_prob': match_result['home_win_prob'],
+            'draw_prob': match_result['draw_prob'],
+            'away_win_prob': match_result['away_win_prob']
+        })
+
+        result = pd.DataFrame(results)
+        winners[k] = match_result['winner']
+        
+    return winners, result
+    
