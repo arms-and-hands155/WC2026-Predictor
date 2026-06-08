@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from src.features import build_features, update_team_history, update_h2h
+from src.features import build_features, assign_third_place_slots, update_team_history, update_h2h
 import joblib
 import numpy as np
 import copy
@@ -599,7 +599,7 @@ def construct_round32(teams_dict):
     75: (teams_dict['1F'], teams_dict['2C']),
     76: (teams_dict['1C'], teams_dict['2F']),
     77: (teams_dict['1I'], teams_dict['3CDFGH']),
-    78: (teams_dict['1E'], teams_dict['2I']),
+    78: (teams_dict['2E'], teams_dict['2I']),
     79: (teams_dict['1A'], teams_dict['3CEFHI']),
     80: (teams_dict['1L'], teams_dict['3EHIJK']),
     81: (teams_dict['1D'], teams_dict['3BEFIJ']),
@@ -720,4 +720,81 @@ def simulate_knockout_round(teams_dict, home_goal_model, away_goal_model, countr
         winners[k] = match_result['winner']
         
     return winners, result
+
+def simulate_tournament(home_goal_model, away_goal_model, country_elo, team_to_confederation, feature, df_groups, df_group_fixture):
+    
+    df_group_stage = simulate_group_stage(df_groups, 
+                                                             df_group_fixture, 
+                                                             home_goal_model, 
+                                                             away_goal_model, 
+                                                             country_elo, 
+                                                             team_to_confederation, 
+                                                             feature)
+    
+    group_stage_result = df_group_stage[0]
+    
+    top2 = group_stage_result.groupby('group').head(2).copy() #Teams that placed top 2 in their group which qualifies
+    third = group_stage_result.groupby('group').nth(2).copy() #All teams that placed third (only 8 of them move on)
+    best8_third = third.sort_values(
+        ['points', 'goal_difference', 'goals_for'], 
+        ascending=[False, False, False]
+    ).head(8).reset_index(drop=True)
+
+    best8_third['third_place_rank'] = best8_third.index + 1
+    
+    round_of_32 = pd.concat([top2, best8_third])
+    
+    rd32_teams = {}
+    for team in top2.itertuples(index=False):
+            rd32_teams[f'{team.group_rank}{team.group}'] = team.team
+            
+    thirds = assign_third_place_slots(best8_third)
+    rd32_teams |= thirds
+
+    x = construct_round32(rd32_teams)
+    
+    r32_winners, r32_results = simulate_knockout_round(x, home_goal_model, away_goal_model, country_elo, team_to_confederation, feature)
+    
+    r16_matchups = construct_round16(r32_winners)
+
+    r16_winners, r16_results = simulate_knockout_round(r16_matchups, home_goal_model, away_goal_model, country_elo, team_to_confederation, feature)
+    
+    QF_matchsups = construct_QF(r16_winners)
+
+    QF_winners, QF_results = simulate_knockout_round(QF_matchsups, home_goal_model, away_goal_model, country_elo, team_to_confederation, feature)
+    
+    SF_matchsups = construct_SF(QF_winners)
+
+    SF_winners, SF_results = simulate_knockout_round(SF_matchsups, home_goal_model, away_goal_model, country_elo, team_to_confederation, feature)
+    
+    winner, results = simulate_knockout_round({103: (SF_winners[101], SF_winners[102])}, home_goal_model, away_goal_model, country_elo, team_to_confederation, feature)
+    
+    summary = {
+        "winner": results['winner'].iloc[0],
+        "runner_up": results['loser'].iloc[0],
+        "r32_teams": list(rd32_teams.values()),
+        "r16_teams": list(r32_winners.values()),
+        "qf_teams": list(r16_winners.values()),
+        "sf_teams": list(QF_winners.values()),
+        "final_teams": list(SF_winners.values())
+    }
+    
+    r32_results['round'] = 'R32'
+    r16_results['round'] = 'R16'
+    QF_results['round'] = 'QF'
+    SF_results['round'] = 'SF'
+    results['round'] = 'Final'
+    
+    
+    return {
+        "summary": summary,
+        "group_tables": group_stage_result,
+        "group_matches": df_group_stage[1],
+        "rounds": pd.DataFrame(x),
+        'bracket': pd.concat([r32_results, r16_results, QF_results, SF_results, results], ignore_index=True)
+    }
+    
+    
+
+    
     
