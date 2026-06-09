@@ -1,8 +1,9 @@
 .env
 .env.local
 
-# Ignore all CSV files in the data folder
-data/
+# Data files
+data/*.csv
+!data/FIFA_confederations.csv
 
 # Python cache
 __pycache__/
