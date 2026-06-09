@@ -47,21 +47,31 @@ The full tournament is simulated up to 2,000 times. Results are aggregated into 
 
 ```
 WC2026/
-├── data/
-│   ├── FIFA_confederations.csv         # Required — see setup notes below
-├── notebooks/
-│   ├── 01_data.ipynb                   # Elo training and data preparation
-│   ├── 02_model.ipynb                  # Poisson GLM training
-│   ├── 03_simulation.ipynb             # Step-by-step single tournament walkthrough
-│   └── 04_multiple_tournament_sims.ipynb  # Full Monte Carlo simulation
-└── src/
-│   ├── data.py                         # Data loading from Kaggle
-│   ├── elo.py                          # Elo rating system and K-factor assignment
-│   ├── features.py                     # Feature engineering and bracket assignment
-│   └── simulation.py                   # Match prediction, group stage, knockout runner
-├── app.py                              # Streamlit web app
+├── app.py
 ├── requirements.txt
+├── README.md
 ├── .gitignore
+├── data/
+│   ├── FIFA_confederations.csv
+├── models/
+│   ├── away_goals_model.joblib
+│   ├── df_groups_fixtures.joblib
+│   ├── df_groups.joblib
+│   ├── final_elo.joblib
+│   ├── home_goals_model.joblib
+│   ├── model_features.joblib
+│   └── team_to_confed.joblib
+├── notebooks/
+│   ├── 01_data.ipynb
+│   ├── 02_model.ipynb
+│   ├── 03_simulation.ipynb
+│   └── 04_multiple_tournament_sims.ipynb
+└── src/
+    ├── __init__.py
+    ├── data.py
+    ├── elo.py
+    ├── features.py
+    └── simulation.py
 ```
 
 ---
