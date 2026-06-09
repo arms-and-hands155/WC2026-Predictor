@@ -3,7 +3,7 @@
 A Monte Carlo simulation of the 2026 FIFA World Cup built from scratch using historical match data, a custom Elo rating system, and Poisson regression models. The app simulates the full 48-team tournament thousands of times to estimate each team's probability of winning, reaching the final, and advancing through each knockout round.
 
 ---
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://wc2026-predictor-tjnctupw4hflw3dxpdb9hj.streamlit.app/)
+**[Live App →](https://wc2026-predictor-tjnctupw4hflw3dxpdb9hj.streamlit.app/)**
 
 ## How it works
 
