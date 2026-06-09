@@ -10,7 +10,7 @@ A Monte Carlo simulation of the 2026 FIFA World Cup built from scratch using his
 A custom Elo system is trained on ~47,000 historical international matches sourced from Kaggle. Matches are weighted by tournament tier (World Cup > continental finals > qualifiers > friendlies) and goal differential. Ratings are initialized from a 2025 baseline and updated through March 2026.
 
 ### 2. Goal prediction models
-Two Poisson GLMs — one for home goals, one for away goals — are trained on competitive international matches. Features include:
+Two Poisson GLMs, one for home goals, one for away goals, are trained on competitive international matches. Features include:
 - Home and away Elo ratings
 - Neutral venue flag
 - Tournament weight (importance of the match)
