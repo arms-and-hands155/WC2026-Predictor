@@ -10,8 +10,6 @@ import time
 ROOT = Path(__file__).parent
 NOTEBOOKS_DIR = ROOT / "notebooks"
 
-
-os.chdir(NOTEBOOKS_DIR)
 sys.path.insert(0, str(ROOT))
 
 import streamlit as st
@@ -30,14 +28,15 @@ st.set_page_config(
 
 @st.cache_resource
 def load_models():
+    models_dir = ROOT / "models"
     return {
-        "model_h":       joblib.load("home_goals_model.joblib"),
-        "model_a":       joblib.load("away_goals_model.joblib"),
-        "country_elo":   joblib.load("final_elo.joblib"),
-        "features":      joblib.load("model_features.joblib"),
-        "team_to_confed":joblib.load("team_to_confed.joblib"),
-        "df_groups":     joblib.load("df_groups.joblib"),
-        "df_fixtures":   joblib.load("df_groups_fixtures.joblib"),
+        "model_h":        joblib.load(models_dir / "home_goals_model.joblib"),
+        "model_a":        joblib.load(models_dir / "away_goals_model.joblib"),
+        "country_elo":    joblib.load(models_dir / "final_elo.joblib"),
+        "features":       joblib.load(models_dir / "model_features.joblib"),
+        "team_to_confed": joblib.load(models_dir / "team_to_confed.joblib"),
+        "df_groups":      joblib.load(models_dir / "df_groups.joblib"),
+        "df_fixtures":    joblib.load(models_dir / "df_groups_fixtures.joblib"),
     }
 
 m = load_models()
