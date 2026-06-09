@@ -1,8 +1,6 @@
 import pandas as pd
 from collections import defaultdict
 from collections import deque
-import numpy as np
-import statsmodels.api as sm
 
 team_history = defaultdict(lambda: deque(maxlen=10))
 

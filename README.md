@@ -23,9 +23,10 @@ A Monte Carlo simulation of the FIFA World Cup 2026 built from scratch using mat
 
 ```
 ├── notebooks/
-│   ├── 01_data.ipynb       # ELO training on historical match data
-│   ├── 02_model.ipynb      # Match outcome + goal count models
-│   └── 03_simulation.ipynb # Full tournament Monte Carlo simulation
+│   ├── 01_data.ipynb                    # ELO training on historical match data and sets up CSV files
+│   ├── 02_model.ipynb                   # Trains goal count models
+│   ├── 03_simulation.ipynb              # Step by step going through one simulation
+│   └── 04_multiple_tournament_sims.ipynb # Full tournament Monte Carlo simulation
 ├── src/
 │   ├── data.py             # Data loading
 │   ├── elo.py              # Elo rating system
@@ -40,13 +41,10 @@ A Monte Carlo simulation of the FIFA World Cup 2026 built from scratch using mat
 pip install -r requirements.txt
 ```
 
-Run the notebooks in order: `01_data` → `02_model` → `03_simulation`.
+Run the notebooks in order: `01_data` → `02_model` → `03_simulation` → `04_multiple_tournament_sims`.
 
 The training data is sourced from Kaggle ([International Football Results 1872–2025](https://www.kaggle.com/datasets/martj42/international-football-results-from-1872-to-2017)). Download it and place the CSV in `data/`.
 
 ## Key design decisions
 
-- **Elo over FIFA rankings** — Elo accounts for goal differential and recency; FIFA rankings lag behind recent form
-- **Logistic Regression over XGBoost** for the outcome classifier — XGBoost overfit on the training tournaments, LR generalised better to 2025 matches
-- **No within-simulation ELO updates** — updating ELO from simulated results caused a winner-compounds-advantage snowball effect; all matches use pre-tournament ratings
-- **Penalty shootouts** — modelled as Bernoulli draws weighted by ELO difference (±30–70%), not deterministic
+
