@@ -123,8 +123,6 @@ Run in order:
 01_data.ipynb → 02_model.ipynb → 03_simulation.ipynb
 ```
 
-This generates the `.joblib` model files used by the app. These are not committed to the repo and must be generated locally.
-
 ### 5. Launch the app
 
 ```bash
