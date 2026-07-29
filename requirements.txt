@@ -9,3 +9,4 @@ python-dotenv==1.2.2
 scipy==1.18.0
 streamlit==1.57.0
 uvicorn==0.47.0
+statsmodels==0.14.6
