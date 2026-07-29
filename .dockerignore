@@ -1,0 +1,19 @@
+# Python cache/build artifacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+ 
+# Secrets — never bake these into an image
+.env
+ 
+# Dev-only, not needed to run the API
+notebooks/
+.git/
+.gitignore
+.vscode/
+.idea/
+README.md
+ 
+# OS junk
+.DS_Store

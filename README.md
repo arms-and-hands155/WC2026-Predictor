@@ -30,6 +30,26 @@ The full tournament is simulated up to 2,000 times. Results are aggregated into 
 
 ---
 
+## API
+
+Predictions are also served via a FastAPI backend, containerized with Docker for reproducible, portable deployment — the same image runs identically locally or on a cloud host, with no dependency on the host machine's Python setup.
+
+**Endpoints:**
+- `GET /predict/match?home_team=X&away_team=X` — single-match scoreline and win/draw/loss probabilities
+- `GET /simulate/tournament` — one full tournament simulation (group tables + bracket result)
+- `GET /simulate/monte-carlo?n_sims=1000` — aggregated stage-reach probabilities across N simulations
+
+**Run locally with Docker:**
+```bash
+docker build -t wc-predictor-api .
+docker run -p 8000:8000 wc-predictor-api
+```
+Then visit `http://127.0.0.1:8000/docs` for interactive API docs.
+
+*(Live API deployment in progress — link coming soon.)*
+
+---
+
 ## Results (1,000 simulations)
 
 | Team | Win % | Final % | SF % |
@@ -42,37 +62,45 @@ The full tournament is simulated up to 2,000 times. Results are aggregated into 
 
 *Results vary across runs due to the stochastic nature of the simulation.*
 
+### How this held up against reality
+
+The actual 2026 World Cup final was Spain vs. Argentina, where Spain won 1-0. This model's headline finding, that Argentina and Spain were the two strongest teams in the field and the most likely pair to meet in the final, turned out to be correct.
+
 ---
 
 ## Project structure
 
 ```
 WC2026/
+├── api.py
 ├── app.py
+├── Dockerfile
+├── .dockerignore
 ├── requirements.txt
 ├── README.md
 ├── .gitignore
 ├── data/
-│   ├── FIFA_confederations.csv
+│ └── FIFA_confederations.csv
 ├── models/
-│   ├── away_goals_model.joblib
-│   ├── df_groups_fixtures.joblib
-│   ├── df_groups.joblib
-│   ├── final_elo.joblib
-│   ├── home_goals_model.joblib
-│   ├── model_features.joblib
-│   └── team_to_confed.joblib
+│ ├── away_goals_model.joblib
+│ ├── df_groups_fixtures.joblib
+│ ├── df_groups.joblib
+│ ├── final_elo.joblib
+│ ├── home_goals_model.joblib
+│ ├── model_features.joblib
+│ └── team_to_confed.joblib
 ├── notebooks/
-│   ├── 01_data.ipynb
-│   ├── 02_model.ipynb
-│   ├── 03_simulation.ipynb
-│   └── 04_multiple_tournament_sims.ipynb
+│ ├── 01_data.ipynb
+│ ├── 02_model.ipynb
+│ ├── 03_simulation.ipynb
+│ └── 04_multiple_tournament_sims.ipynb
 └── src/
-    ├── __init__.py
-    ├── data.py
-    ├── elo.py
-    ├── features.py
-    └── simulation.py
+├── init.py
+├── data.py
+├── elo.py
+├── features.py
+├── predictor.py
+└── simulation.py
 ```
 
 ---
