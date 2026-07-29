@@ -46,7 +46,7 @@ docker run -p 8000:8000 wc-predictor-api
 ```
 Then visit `http://127.0.0.1:8000/docs` for interactive API docs.
 
-*(Live API deployment in progress — link coming soon.)*
+**[Live API →](https://wc2026-predictor-36s3.onrender.com/docs)**
 
 ---
 
