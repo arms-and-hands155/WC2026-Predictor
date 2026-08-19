@@ -49,7 +49,7 @@ def monte_carlo_odds(n_sims: int = 1000):
     if n_sims > 10000:
         raise HTTPException(status_code=400, detail="Max 10,000 simulations per request")
     df = run_monte_carlo(
-        model_h, model_a, country_elo, team_to_confederation,
-        features, df_groups, df_group_fixtures, n=n_sims
-    )
+    n_sims, model_h, model_a, country_elo, team_to_confederation,
+    features, df_groups, df_group_fixtures
+)
     return df.to_dict(orient="records")
