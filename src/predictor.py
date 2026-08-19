@@ -6,6 +6,10 @@ class UnknownTeamError(Exception):
 
 def predict_match(home_team, away_team, country_elo, team_to_confederation,
                    model_h, model_a, features):
+    team_lookup = {k.lower(): k for k in country_elo}
+    home_team = team_lookup.get(home_team.strip().lower(), home_team)
+    away_team = team_lookup.get(away_team.strip().lower(), away_team)
+    
     if home_team not in country_elo or away_team not in country_elo:
         raise UnknownTeamError(f"Unknown team: {home_team} or {away_team}")
 
