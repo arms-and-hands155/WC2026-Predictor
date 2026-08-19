@@ -10,7 +10,8 @@ def predict_match(home_team, away_team, country_elo, team_to_confederation,
     home_team = team_lookup.get(home_team.strip().lower(), home_team)
     away_team = team_lookup.get(away_team.strip().lower(), away_team)
     
-    if home_team not in country_elo or away_team not in country_elo:
+    if (home_team not in country_elo or away_team not in country_elo or
+        home_team not in team_to_confederation or away_team not in team_to_confederation):
         raise UnknownTeamError(f"Unknown team: {home_team} or {away_team}")
 
     X = build_features(home_team, away_team, country_elo, team_to_confederation, features)
