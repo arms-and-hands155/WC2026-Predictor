@@ -63,13 +63,13 @@ def build_features(home_team, away_team, country_elo, team_to_confederation, fea
         home_elo = 1500.0
 
     if away_elo is None:
-        home_elo = 1500.0
+        away_elo = 1500.0
 
     if home_conf is None:
         home_conf = 'Unknown'
 
     if away_conf is None:
-        home_conf = 'Unknown'
+        away_conf = 'Unknown'
 
     row = pd.DataFrame([{
         "home_elo": home_elo,
